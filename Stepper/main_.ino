@@ -20,6 +20,13 @@
 #define MIN_STEP 0
 #define MAX_STEP 3
 
+#define TRIG_PIN 7
+#define ECHO_PIN 6
+
+#define IR_INPUT_80  A5
+#define IR_INPUT_500 A4
+
+#define MS_TO_CM(x) (x/58L)
 
 int step = 0;
 void makeStep ( int xw );
@@ -33,12 +40,50 @@ void setup()
     pinMode(IN2, OUTPUT); 
     pinMode(IN3, OUTPUT); 
     pinMode(IN4, OUTPUT); 
+
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+
+    digitalWrite(TRIG_PIN, LOW);
 }
+
+int UZ_offset = 4; // 4 cm error
 
 void loop()
 {
+    digitalWrite( TRIG_PIN, HIGH );
+    delayMicroseconds( 10 );
+    digitalWrite( TRIG_PIN, LOW );
 
-    for ( int i = 0; i < 16; i++ )
+    long pulseWidth = pulseIn( ECHO_PIN, HIGH ),
+         dist_UZ_cm = -1;
+    if ( pulseWidth < 26000 )
+    {
+        dist_UZ_cm = MS_TO_CM( pulseWidth ) - UZ_offset;
+    }
+
+    // float dist_IR_500_cm = 1000000.0/map( analogRead( IR_INPUT_500 ), 287, 512, 2000L, 10000L );
+    // float dist_IR_80_cm = ( 6762/(analogRead( IR_INPUT_80 ) - 9) ) - 4;
+    
+    int IR_80_ADC_input = analogRead( IR_INPUT_80 ),
+        dist_IR_80_cm = -1;
+
+    if ( IR_80_ADC_input > 41 ) // 41 from ADC = 0.2 V
+    {
+        dist_IR_80_cm = ( 7802.0/((float)IR_80_ADC_input + 6.175) ) - 7.182;
+    }
+
+    // Serial.print(dist_IR_500_cm);
+    // Serial.print(", ");
+    Serial.print(dist_IR_80_cm);
+    Serial.print(", ");
+    Serial.println(dist_UZ_cm);
+
+    delay(100);
+
+    return;
+
+/*    for ( int i = 0; i < 16; i++ )
     {
         turnRightFive();
     }
@@ -88,7 +133,7 @@ void loop()
     {
         Serial.println( analogRead(1) );
         delay(100);
-    }
+    }*/
 }
 
 void turnRightFive ( void ) // 5.625 angle
