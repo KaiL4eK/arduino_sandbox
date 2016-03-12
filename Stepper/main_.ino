@@ -26,12 +26,17 @@
 #define IR_INPUT_80  A5
 #define IR_INPUT_500 A4
 
+#define QRD_INPUT 5
+
 #define MS_TO_CM(x) (x/58L)
 
 int step = 0;
 void makeStep ( int xw );
 void turnRightFive ( void );
 void turnLeftFive ( void );
+void makeStepRight ( void );
+void makeStepLeft ( void );
+int stepperMakeCalibration ( void );
 
 void setup()
 {
@@ -43,15 +48,17 @@ void setup()
 
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
+    pinMode(QRD_INPUT, INPUT);
 
     digitalWrite(TRIG_PIN, LOW);
 }
 
 int UZ_offset = 4; // 4 cm error
+int stepDelay = 5;
 
 void loop()
 {
-    digitalWrite( TRIG_PIN, HIGH );
+/*    digitalWrite( TRIG_PIN, HIGH );
     delayMicroseconds( 10 );
     digitalWrite( TRIG_PIN, LOW );
 
@@ -75,77 +82,124 @@ void loop()
 
     // Serial.print(dist_IR_500_cm);
     // Serial.print(", ");
+    Serial.print(digitalRead(QRD_INPUT));
+    Serial.print(", ");
     Serial.print(dist_IR_80_cm);
     Serial.print(", ");
     Serial.println(dist_UZ_cm);
 
-    delay(100);
+    delay(100);*/
 
-    return;
-
-/*    for ( int i = 0; i < 16; i++ )
+    int res = stepperMakeCalibration(); // -1 - error; 0 - found from left, 1 - found from right
+    if ( res < 0 )
     {
-        turnRightFive();
+        Serial.println( "Calibration failed" );
+    } 
+    
+    int count = 0;
+
+    while ( digitalRead( QRD_INPUT ) )
+    {
+        count++;
+        if ( res )
+        {
+            makeStepRight();
+        }
+        else
+        {
+            makeStepLeft();
+        }
+        delay( stepDelay );
     }
+
+    Serial.println( count );
+
+    count /= 2;
+
+    for ( int i = 0; i < count; i++ )
+    {
+        if ( res )
+        {
+            makeStepLeft();
+        }
+        else
+        {
+            makeStepRight();
+        }
+        delay( stepDelay );
+    }
+
+    Serial.println( count );
     makeStep( -1 );
-    delay( 1000 );
 
-    for ( int i = 0; i < 20; i++ )
-    {
-        Serial.println( analogRead(1) );
-        delay(100);
-    }
+    while ( 1 );
+}
 
-    for ( int i = 0; i < 16; i++ )
+// 5 means 5.625
+int stepsFor90by5 = 90.0/5.625;
+
+// Just for sure that we are no on the border
+int additionSteps = 0;
+
+int stepperMakeCalibration ( void )
+{
+    int calibrationDelay = 100;
+    if ( digitalRead( QRD_INPUT ) )
     {
         turnLeftFive();
-    }
-    makeStep( -1 );
-    delay( 1000 );
-
-    for ( int i = 0; i < 20; i++ )
-    {
-        Serial.println( analogRead(1) );
-        delay(100);
-    }
-
-    for ( int i = 0; i < 16; i++ )
-    {
         turnLeftFive();
     }
-    makeStep( -1 );
-    delay( 1000 );
 
-    for ( int i = 0; i < 20; i++ )
+    for ( int i = 0; i < stepsFor90by5*32; i++ )
     {
-        Serial.println( analogRead(1) );
-        delay(100);
+        makeStepRight();
+        delay( stepDelay );
+        if ( digitalRead( QRD_INPUT ) )
+        {
+            makeStep( -1 );
+            return( 1 );
+        }
     }
 
-    for ( int i = 0; i < 16; i++ )
-    {
-        turnRightFive();
-    }
     makeStep( -1 );
-    delay( 1000 );
-
-    for ( int i = 0; i < 20; i++ )
+    delay( calibrationDelay );
+    
+    for ( int i = 0; i < stepsFor90by5*2*32; i++ )
     {
-        Serial.println( analogRead(1) );
-        delay(100);
-    }*/
+        makeStepLeft();
+        delay( stepDelay );
+        if ( digitalRead( QRD_INPUT ) )
+        {
+            makeStep( -1 );
+            return( 0 );
+        }
+    }
+
+    makeStep( -1 );
+    delay( calibrationDelay );
+
+    for ( int i = 0; i < stepsFor90by5*32; i++ )
+    {
+        makeStepRight();
+        delay( stepDelay );
+        if ( digitalRead( QRD_INPUT ) )
+        {
+            makeStep( -1 );
+            return( 1 );
+        }
+    }
+
+    makeStep( -1 );
+    delay( calibrationDelay );
+
+    return( -1 );
 }
 
 void turnRightFive ( void ) // 5.625 angle
 {
     for ( int i = 0; i < 32; i++ )
     {
-        if ( ++step > MAX_STEP )
-        {
-            step = MIN_STEP;
-        }
-        makeStep( step );
-        delay( 3 );
+        makeStepRight();
     }
 }
 
@@ -153,13 +207,28 @@ void turnLeftFive ( void )
 {
     for ( int i = 0; i < 32; i++ )
     {
-        if ( --step < MIN_STEP )
-        {
-            step = MAX_STEP;
-        }
-        makeStep( step );
-        delay( 3 );
+        makeStepLeft();
     }
+}
+
+void makeStepRight ( void )
+{
+    if ( ++step > MAX_STEP )
+    {
+        step = MIN_STEP;
+    }
+    makeStep( step );
+    delay( 3 );
+}
+
+void makeStepLeft ( void )
+{
+    if ( --step < MIN_STEP )
+    {
+        step = MAX_STEP;
+    }
+    makeStep( step );
+    delay( 3 );
 }
 
 void makeStep ( int step )
