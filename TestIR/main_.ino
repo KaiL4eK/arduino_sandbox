@@ -1,14 +1,14 @@
 void setup ( void )
 {
-	Serial1.begin( 2400 );
+	Serial3.begin( 2400 );
 	Serial.begin( 115200 );
 }
 
 void loop ( void )
 {
 	bool end = false;
-	while ( Serial1.available() ) {
-		Serial.print( Serial1.read() );
+	while ( Serial3.available() ) {
+		Serial.print( Serial3.read() );
 		Serial.print( " " );
 		end = true;
 	}
